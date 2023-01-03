@@ -1,7 +1,7 @@
-<?php
+﻿<?php
 /*
-	Just Drop Uploader Version 0.6.1 Gizzle
-	Copyright © 2017 - 2021 by HazelFazel
+	Just Drop Uploader Version 0.7.0 Gizzle
+	Copyright © 2017 - 2023 by HazelFazel
 	Based on a basic chunk uploader 2017 by C. Merz, F. Rienhardt
 	
 	Bug reports to hazelfazel(at)bitnuts.de
@@ -23,12 +23,12 @@ $LOGO = 'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8
 
 // you MUST specify the URL explicitly
 // the following line is just for debugging
-$URL = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-//$URL = "https://YOURDOMAIN/justdrop.php";
+//$URL = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+$URL = "https://YOURDOMAIN/justdrop.php";
 
 // you MUST specify your own session key
 // it can by any random text string
-$SESSION_KEY  = hash('sha256', 'NKTalu$G#d(b[hlv(KgRYWTs5T65s5Jl,lTMzGrn');
+$SESSION_KEY  = hash('sha256', '$byTyqCN3!3v5LLTgiIHN0YW5kYWxvbmU9Im5nb_e8jckm');
 
 // enable if you'd like to use the original filename and trust the people who
 // upload files. you should not, if used by external strangers
@@ -37,11 +37,14 @@ $USE_ORIGINAL_FILENAME = true;
 // if you would like to receive an email notification on
 // successful upload, setup recipients and mail body here
 $MAIL_NOTIFICATION = false;
+/*
 $MAIL_FROM = 'upload-script@your-domain.com';
 $MAIL_TO = 'your-email-address@your-domain.com';
-$MAIL_SUBJECT = '📥 File uploaded';
+$MAIL_SUBJECT = '📥 File was uploaded';
 $MAIL_CONTENT_HEADER = "Hi there!\r\n\r\nA new file was uploaded. You'll find it at: ";
 $MAIL_CONTENT_FOOTER = "Greetings 🦄";
+*/
+
 
 // maximal file size we would like to support for an upload
 $MAXFILESIZE = 1024*1024*1500; // max. 1.500 Gig
@@ -61,7 +64,6 @@ $PASSWORDS = array(
 					'$2y$10$NP2O3S6r1hgrHeEGQQOdsuvG/3Pcttu0RRSaLGT81a0CULB/0LNpO', //test !!! REMOVE !!!
 				);
 
-
 /*
 
 
@@ -75,8 +77,8 @@ $PASSWORDS = array(
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 $GENERATOR = 'JustDrop';
-$VERSION_NO = '0.6.3';
-$VERSION_TITLE = 'Gizzle';
+$VERSION_NO = '0.7.0';
+$VERSION_TITLE = 'SevenHills';
 
 $DEBUG = false;
 if ($DEBUG) {
@@ -84,13 +86,12 @@ if ($DEBUG) {
 	$GREETING .= '<br>' . password_hash('test', PASSWORD_BCRYPT);
 }
 
-// set up the chunk size; please do not use the maximum allowed size
-// because we need some additionals bytes for base64 encoding and the
-// control messages
+// set up the chunk size
 if ($DEBUG) {
 	$CHUNK_SIZE = 1024*512; // = 512KBs
 } else {
 	$CHUNK_SIZE = intdiv(get_file_upload_max_size(), 2);
+	//$CHUNK_SIZE = 1024*512;
 }
 
 // allowed requests
@@ -111,8 +112,8 @@ $MIMICS_TYPICAL_DOCUMENT_TYPE = '/\.(zip|tar|cab|msi|7z|rar|inf|ini|doc|dot|docx
 
 function sendMailNotification($mailTo, $mailFrom, $mailSubject, $mailContent) {
 	$header = 'From: ' . $mailFrom . "\r\n" .
-	'To: ' . $mailTo . "\r\n" .
-	'Reply-To: ' . $mailTo . "\r\n" .
+	//'To: ' . $mailTo . "\r\n" .
+	//'Reply-To: ' . $mailTo . "\r\n" .
 	'X-Mailer: PHP/' . phpversion() . "\r\n" .
 	"MIME-Version: 1.0\r\n" .
 	"Content-Type: text/plain; charset=utf-8\r\n"; //iso-8859-1\r\n";
@@ -391,18 +392,17 @@ function handler_chunked_upload_data() {
 	global $session_cookie;
 	global $request;
 
-	if (!isset($_POST['chunked_data'])) {
-		echo json_encode(array('request' => $request, 'status' => 'error_fatal_parameter_missing', 'session_id' => $session_id));
+	if (!isset($_FILES['chunked_data'])) {
+		echo json_encode(array('request' => $request, 'status' => 'error_fatal_chunked_data_missing', 'session_id' => $session_id));
 		return ;
 	}
 
 	global $MAXFILESIZE;
 	global $CHUNK_SIZE;
 
-	if ((strlen($_POST['chunked_data']) <= $CHUNK_SIZE) && (isBase64($_POST['chunked_data']))) {
+	if ( ($_FILES['chunked_data']['size'] > 0) && ($_FILES['chunked_data']['size'] <= $CHUNK_SIZE) ) {
 		if (filesize($session_id . '_file') <= $MAXFILESIZE) {
-			$buffer = base64_decode($_POST['chunked_data']);
-
+			$buffer = file_get_contents($_FILES['chunked_data']['tmp_name']);
 			/* for failure checks
 			if (rand(0, 7) >= 4) {
 				$f = fopen($session_id . '_file', 'ab');
@@ -483,7 +483,7 @@ function handler_chunked_upload_close() {
 		global $URL;
 		
 		$mailBody = $MAIL_CONTENT_HEADER . "\r\n\r\n";
-		$mailBody = $mailBody . dirname($URL) . '/' . $fileName . "\r\n\r\n";
+		$mailBody = $mailBody . dirname($URL) . '/' . rawurlencode($fileName) . "\r\n\r\n";
 		$mailBody = $mailBody . $MAIL_CONTENT_FOOTER . "\r\n\r\n";
 		sendMailNotification($MAIL_FROM, $MAIL_TO, $MAIL_SUBJECT, $mailBody);
 	}
@@ -589,30 +589,47 @@ font-size: 1.3em;
 font-weight: normal;
 text-align: center;
 }
+
+.cursor {
+transition: all .25s ease-in-out;
+}
+
+.display-none {
+display: none;
+}
+
+.display-block {
+display: block;	
+}
+
+.display {
+position: relative;
+display: inline-block;
+}
 </style>
 </head>
 
 <body>
 <p><a href="<?php echo $URL ?>" title="logo"><img alt="logo" src="data:image/svg+xml;base64,<?php echo $LOGO ?>"></a></p>
 
-<div id="sectionUploader" style="display: block;">
+<div id="sectionUploader" class="display-block">
 <p><?php echo $GREETING; ?></p>
-<div style="position: relative; display: inline-block;">
+<div class="display">
 <form method="post" action="#" enctype="multipart/form-data">
 <div class="fileContainer" id="fileSelectBox" ondragover="dragOver(event)" ondragleave="leaveDrop(event)" ondrop="onDrop(event)">
 <div class="fileContainerFileName" ondrop="onDrop(event)" id="fileName">Select or drop file</div><span class="fileContainerButton">...</span>
-<input name="fileBox" id="fileBox" onchange="fileContainerChangeFile(event)" type="file"/>
+<input name="fileBox" id="fileBox" onchange="fileContainerChangeFile(event)" type="file" aria-label="File to upload"/>
 </div>
 </div>
-<?php if (!empty($PASSWORDS)) {echo '<br> Password:<br><input type="password" id="password" name="password" required>'; } ?>
+<?php if (!empty($PASSWORDS)) {echo '<br> Password:<br><input type="password" id="password" name="password" aria-label="access password" required>'; } ?>
 <br><br>
 <input class="button" id="upload" type="submit" value="Upload"><br>
 <br>
 </form>
 </div>
 
-<div id="statusBlock" style="display: none;">
-<span id="statusInfoText"></span>&nbsp;<span id="cursor" style="transition: all .25s ease-in-out;">█</span>
+<div id="statusBlock" class="display-none">
+<span id="statusInfoText"></span>&nbsp;<span id="cursor" class="cursor">█</span>
 </div>
 
 <!-- Chunked Upload Library BEGIN -->
@@ -649,7 +666,7 @@ function submitSample(e) {
 	console.log('funtion submitSample called');
 	document.getElementById('statusBlock').style.display = 'block';
 	el = document.getElementById('statusInfoText');
-	chunkUpload.init("<?php echo $URL ?>", 10, 10000, 'fileBox', 'password', el);
+	chunkUpload.init("<?php echo $URL ?>", 5, 10000, 'fileBox', 'password', el);
 	chunkUpload.startUpload();
 	//document.getElementById('upload').removeEventListener('click', submitSample);
 	document.getElementById('upload').disabled = true;
@@ -661,10 +678,10 @@ var chunkUpload = (function() {
 	var xhr = null;
 	var file = null;
 
-	var sData = '';
+	var sendData;
 	var timeout_maxTries = 0;
 	var timeout_cnt = 0;
-	var timeout_timeToWait = 1000*30; // 30 seconds should be enough
+	var timeout_timeToWait = 1000*60*5; // 5 minutes should be enough
 	var chunkSize = 0;
 
 	var start = 0;
@@ -700,7 +717,7 @@ var chunkUpload = (function() {
 					console.log(respJSON.session_cookie);
 					console.log(respJSON.session_time);
 					upload_id = respJSON.session_id;
-					chunkSize = Math.floor(respJSON.chunk_size / 2);
+					chunkSize = Math.floor(respJSON.chunk_size);
 					remainder = file.size % chunkSize;
 					blkcount = Math.floor(file.size / chunkSize);
 					if (remainder !== 0) {
@@ -717,24 +734,28 @@ var chunkUpload = (function() {
 					upload_state = -1;
 					xhr.onload = responseHandler;
 					xhr.open('POST', url, true);
-					xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+					
 					xhr.ontimeout = timeoutHandler;
 					xhr.timeout = timeout_timeToWait;
 					timeout_cnt = timeout_maxTries;
-					sData = 'session_id=' + upload_id + '&session_cookie=' + respJSON.session_cookie + '&session_time=' + respJSON.session_time + '&password=' + sessionPassword + '&request=chunked_upload_close';
-					// preserve session info
+					sendData = new FormData();
+					sendData.append('session_id', upload_id);
+					sendData.append('session_cookie', respJSON.session_cookie);
+					sendData.append('session_time', respJSON.session_time);
+					sendData.append('password', sessionPassword);
+					sendData.append('request', 'chunked_upload_close');
+					
 					sessionID = respJSON.session_id;
 					sessionCookie = respJSON.session_cookie;
 					sessionTime = respJSON.session_time;
 
-					xhr.send(sData);
+					xhr.send(sendData);
 				}
 				if (cnt < blkcount) {
 					statusInfoText.textContent = 'Uploading ' + Math.ceil((cnt*100)/blkcount) + '%';
 
 					xhr.onload = responseHandler;
 					xhr.open('POST', url, true);
-					xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
 					xhr.ontimeout = timeoutHandler;
 					xhr.timeout = timeout_timeToWait;
 					timeout_cnt = timeout_maxTries;
@@ -742,16 +763,23 @@ var chunkUpload = (function() {
 					var reader = new FileReader();
 					var blob = file.slice(start, stop);
 
-					reader.readAsDataURL(blob); //readAsBinaryString(blob);
 					reader.onload = function (e) {
-						sData = e.target.result.match(/,(.*)$/)[1];  //e.target.result;
-						sData = 'session_id=' + upload_id + '&session_cookie=' + respJSON.session_cookie + '&session_time=' + respJSON.session_time + '&password=' + sessionPassword + '&request=chunked_upload_data&chunked_data=' + encodeURIComponent(sData);
+						var fileData =  new Blob([e.target.result]);
+
+						sendData = new FormData();
+						sendData.append('chunked_data', fileData);
+						sendData.append('session_id', upload_id);
+						sendData.append('session_cookie', respJSON.session_cookie);
+						sendData.append('session_time', respJSON.session_time);
+						sendData.append('password', sessionPassword);
+						sendData.append('request', 'chunked_upload_data');
+						
 						// preserve session info
 						sessionID = respJSON.session_id;
 						sessionCookie = respJSON.session_cookie;
 						sessionTime = respJSON.session_time;
 
-						xhr.send(sData);
+						xhr.send(sendData);
 
 						start = stop;
 						stop = stop + chunkSize;
@@ -767,16 +795,18 @@ var chunkUpload = (function() {
 							stop = start;
 						}
 					}
+					reader.readAsArrayBuffer(blob);
 				}
 				if (respJSON.request === 'chunked_upload_close') {
 					isUploaded = true;
-					sData = '';
+					sendData = '';
 					console.log('Finished uploading file.');
 					
 					statusInfoText.textContent = 'Successfully uploaded file.';
 				}
 			} else {
 				console.log('Error occured: ' + respJSON.status);
+				console.log('JSON: ' + JSON.stringify(respJSON));
 				statusInfoText.textContent = respJSON.status;
 				if (!respJSON.status.startsWith('error_fatal_')) {
 					var someTimeout = setTimeout(function() { timeoutHandler(); return ; }, timeout_timeToWait);
@@ -792,16 +822,15 @@ var chunkUpload = (function() {
 			timeout_cnt--;
 			xhr.onload = responseHandler;
 			xhr.open('POST', url, true);
-			xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
 			xhr.ontimeout = timeoutHandler;
 			xhr.timeout = timeout_timeToWait;
 			statusInfoText.textContent = 'Retrying to send ' + timeout_cnt + '/' + timeout_maxTries;
 			console.log(statusInfoText.textContent);
-			xhr.send(sData);
+			xhr.send(sendData);
 		} else {
 			statusInfoText.textContent = 'Fatal timeout error, cancelled submission.';
 			console.log(statusInfoText.textContent);
-			sData = '';
+			sendData = '';
 		}
 	}
 
@@ -811,7 +840,7 @@ var chunkUpload = (function() {
 			xhr = null;
 			file = null;
 			fileID = '';
-			sData = '';
+			sendData = '';
 			timeout_maxTries = 0;
 			timeout_cnt = 0;
 			chunkSize = 0;
@@ -834,7 +863,6 @@ var chunkUpload = (function() {
 			}
 		},
 		startUpload: function() {
-			//xhr = new XMLHttpRequest();
 			try {
 				// Mozilla, Opera, Safari and MS Internet Explorer (>= v7)
 				if (window.XMLHttpRequest) {
@@ -862,8 +890,6 @@ var chunkUpload = (function() {
 					statusInfoText.textContent = 'Error, no file specified.';
 					return;
 				}
-				//var files = document.getElementById(fileID).files;
-				//file = files[0];
 				file = droppedFiles[0];
 				if (file.size > 0) {
 					if (file.size > <?php echo $MAXFILESIZE ?>) {
@@ -871,8 +897,10 @@ var chunkUpload = (function() {
 					} else {
 						statusInfoText.textContent = 'Initiating upload';
 
-						sData = 'request=chunked_upload_init&filename=' + file.name;
-						sData = sData + '&password=' + sessionPassword;
+						sendData = new FormData();
+						sendData.append('filename', file.name);
+						sendData.append('password', sessionPassword);
+						sendData.append('request', 'chunked_upload_init');
 
 						xhr.onload = responseHandler;
 						// seems that ontimeout is not supported by all browsers
@@ -882,13 +910,11 @@ var chunkUpload = (function() {
 							timeout_cnt = timeout_maxTries;
 						} catch (err) {
 							console.log('Your browser does not support timeouts.');
-							; // not supported
 						}
 						upload_state = 1;
 
 						xhr.open('POST', url, true);
-						xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-						xhr.send(sData);
+						xhr.send(sendData);
 					}
 				} else {
 					statusInfoText.textContent = 'Nothing to upload, file is empty.';
@@ -943,5 +969,5 @@ var chunkUpload = (function() {
 </script>
 <!-- Highlighted File Drop Library END -->
 <hr>
-<p>&copy; Copyright 2021 by <a href="https://github.com/hazelfazel">HazelFazel</a> 🍕🐀</p>
+<p>&copy; Copyright 2023 by <a href="https://github.com/hazelfazel">HazelFazel</a> 🍕🐀</p>
 </body>
