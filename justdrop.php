@@ -1,6 +1,6 @@
 ﻿<?php
 /*
-	Just Drop Uploader Version 0.7.0 Gizzle
+	Just Drop Uploader Version 0.7.0 SevenHills
 	Copyright © 2017 - 2023 by HazelFazel
 	Based on a basic chunk uploader 2017 by C. Merz, F. Rienhardt
 	
